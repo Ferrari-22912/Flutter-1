@@ -1,0 +1,48 @@
+name: Validate and build slide-based 3Bhai
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'three_bhai_alpha/**'
+      - 'tools/check_rebuild.py'
+      - '.github/workflows/flutter.yml'
+  pull_request:
+    paths:
+      - 'three_bhai_alpha/**'
+      - 'tools/check_rebuild.py'
+      - '.github/workflows/flutter.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: three_bhai_alpha
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check original UI and assets
+        run: python3 ../tools/check_rebuild.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.3'
+          channel: stable
+          cache: true
+      # The supplied lite ZIP does not contain generated Gradle launch scripts.
+      - name: Generate missing Android scaffolding
+        run: flutter create --org com.threebhai --project-name three_bhai --platforms=android .
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: three-bhai-slide-based-apk
+          path: three_bhai_alpha/build/app/outputs/flutter-apk/app-release.apk
